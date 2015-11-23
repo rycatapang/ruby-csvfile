@@ -17,15 +17,17 @@ cancelSelect = false
 $iRow = 0 #How many rows needed
 # $compareArray - Columns selected
 $new_filename = ""
+$fHeader = []
 
 def get_header(path = "")
 
     require 'csv'
 	getHeader = CSV.read(path)[0,1] #Reads first row only
-	fHeader = getHeader[0,1].join(",").upcase!.split(/\s*,\s*/) #to string upcase > to store in array
+	#$fHeader = getHeader[0,1].join(",").upcase!.split(/\s*,\s*/) #to string upcase > to store in array
+	$fHeader = getHeader[0,1].join(",").split(/\s*,\s*/) #to string upcase > to store in array
 	
 	puts "\nTable column/s found:"	
-	p fHeader
+	p $fHeader
 	confirmSelect = "N"
 
 	begin
@@ -40,9 +42,9 @@ def get_header(path = "")
 		begin 
 			
 			begin
-			puts "\nWhat column/s would you like to be selected (seperate each values by a comma)? (x = cancel)"
+			puts "\nWhat column/s would you like to be selected (seperate each values by a comma)? (Columns are case-sensitive)"
 			temp_header = gets.chomp
-			temp_header.upcase! #input to upcase (so input is not case sensitive)
+			#temp_header.upcase! #input to upcase (so input is not case sensitive)
 			
 			#if temp_header == "x"
 			#	cancelSelect = true
@@ -57,16 +59,15 @@ def get_header(path = "")
 			conArray = []
 			conArray = temp_header.split(/\s*,\s*/)
 			
-			$compareArray = fHeader & conArray #Comparing (intersection)
+			$compareArray = $fHeader & conArray #Comparing (intersection)
 			proceedColumn = "N"
 				
 				if $compareArray.any? == true
 				
-					puts "\n>>> Column/s found: #{fHeader}" 
+					puts "\n>>> Column/s found: #{$fHeader}" 
 					puts ">>> You have selected: #{$compareArray}\n>>> *Missing value/s means they are not found. Please confirm selected values. Proceed [Y/N]?"
 					proceedColumn = gets.chomp
 					proceedColumn.upcase!
-					p proceedColumn
 						
 						if proceedColumn == "Y" #Confirmation: proceed to next?
 							confirmHeader = true
@@ -80,7 +81,7 @@ def get_header(path = "")
 						
 				else
 					
-					puts "\n>>> Column/s found: #{fHeader}" 
+					puts "\n>>> Column/s found: #{$fHeader}" 
 					puts ">>> You have selected: #{$compareArray} >>> Nothing. Please input again."
 					confirmHeader = false
 					
@@ -97,9 +98,10 @@ def get_header(path = "")
 		
 		require 'csv'
 		getHeader = CSV.read(path)[0,1] #Reads first row only
-		fHeader = getHeader[0,1].join(",").upcase!.split(/\s*,\s*/) #to string upcase > to store in array
+		$fHeader = getHeader[0,1].join(",").split(/\s*,\s*/) #to string upcase > to store in array
+		#$fHeader = getHeader[0,1].join(",").upcase!.split(/\s*,\s*/) #to string upcase > to store in array
 		
-		$compareArray = fHeader
+		$compareArray = $fHeader
 		break
 		
 	else
@@ -181,40 +183,62 @@ def get_saveFileName
 end
 
 def process_file
-
-	options = {:encoding => 'UTF-8', :skip_blanks => true}
+	
+	#Create new csv file w desired column
 	require 'csv'
-
-	CSV.foreach("#{$file_path}", options).each_with_index do |row, i|
-	puts "Processing row #{i}. . ."
-	$totalRowfound = i
-	end
-	   
-	puts "\n>>> #{$totalRowfound} rows found."	
+	original = CSV.read("#{$file_path}", { headers: true, return_headers: true })
+	$array = $fHeader - $compareArray
 	
-	iCreatedFile = $totalRowfound / $iRow
-	iExcess = $totalRowfound % $iRow
-	p iCreatedFile
-		
-	if iExcess > 0
-		iCreatedFile = iCreatedFile + 1
-		p iCreatedFile
+	if $array != []
+		$array.each do |val| 
+		original.delete(val)
+		end
 	end
 	
-	temp = 0
+	CSV.open("#{$file_directory}/New#{$new_filename}.csv", "w") do |csv|
+	original.each do |row|
+	csv << row
+	puts "Collecting and processing data. . ."
+		end
+	end
 	
-	begin 
-	require "csv"
-	CSV.open("#{$file_directory}/#{$new_filename}#{temp}.csv", "wb") do |csv|
+	puts "\n>>> New source file created."
+	
+	$temp = 1
+	$fileNum = 1	
+	
 		begin
-			z = $compareArray.count
-			puts z
+		arr = CSV.read("#{$file_directory}/New#{$new_filename}.csv", {:encoding => "CP1251:UTF-8", :col_sep => ",", :row_sep => :auto, :headers => :none})
+		
+		begin
+			arr.each do |row|
+			
+				begin #creating file
+					
+					CSV.open("#{$file_directory}/#{$new_filename}#{$fileNum}.csv", "a") do |csv|
+						if $temp == 1
+							csv << $compareArray
+						end
+						
+						csv << row
+						puts "Creating and writing data. . . #{$temp}/#{$iRow} (#{$fileNum} file/s created.)"
+					if $temp % $iRow == 0
+						$fileNum += 1
+						$temp = 1
+					else
+						$temp += 1
+						
+					end			
+					
+					end
+				end 
+			
+			end
 		end
 	
 	end
-		temp = temp + 1
-	end while iCreatedFile > temp
-			
+	
+	puts "\n>>> Compeleted."
 end
 
 	if option == "1" # 1st >> Selecting the .CSV file; >> From file path.
